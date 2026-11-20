@@ -9,10 +9,16 @@ import { IAwsSsoOidcVerificationWindowService } from "@noovolari/leapp-core/inte
 import { WindowService } from "./window.service";
 import { MessageToasterService, ToastLevel } from "./message-toaster.service";
 import { AppProviderService } from "./app-provider.service";
+import { SsoAutofillService } from "./sso-autofill.service";
 
 @Injectable({ providedIn: "root" })
 export class AppVerificationWindowService implements IAwsSsoOidcVerificationWindowService {
-  constructor(private windowService: WindowService, private toasterService: MessageToasterService, private appProviderService: AppProviderService) {}
+  constructor(
+    private windowService: WindowService,
+    private toasterService: MessageToasterService,
+    private appProviderService: AppProviderService,
+    private ssoAutofillService: SsoAutofillService
+  ) {}
 
   async openVerificationWindow(
     registerClientResponse: RegisterClientResponse,
@@ -60,21 +66,31 @@ export class AppVerificationWindowService implements IAwsSsoOidcVerificationWind
     });
 
     return new Promise((resolve, reject) => {
-      // When the code is verified and the user has been logged in, the window can be closed
+      let approved = false;
+      // Once the code is verified and the user is logged in, drop the window and let core fetch the token.
+      // destroy() rather than close(): the "close" handler above is the user-cancelled path, which makes the
+      // caller stop every AWS SSO session.
+      const approve = () => {
+        if (approved) {
+          return;
+        }
+        approved = true;
+        verificationWindow.destroy();
+        resolve({
+          clientId: registerClientResponse.clientId,
+          clientSecret: registerClientResponse.clientSecret,
+          deviceCode: startDeviceAuthorizationResponse.deviceCode,
+        });
+      };
+      this.ssoAutofillService.watch(verificationWindow.webContents).then((pageApproved) => pageApproved && approve());
+
       verificationWindow.webContents.session.webRequest.onCompleted(
         {
           urls: this.getAssociateTokenUrls(),
         },
         (details, callback) => {
           if (details.method === "POST" && details.statusCode === 200) {
-            verificationWindow.close();
-
-            const verificationResponse: VerificationResponse = {
-              clientId: registerClientResponse.clientId,
-              clientSecret: registerClientResponse.clientSecret,
-              deviceCode: startDeviceAuthorizationResponse.deviceCode,
-            };
-            resolve(verificationResponse);
+            approve();
           }
 
           callback({

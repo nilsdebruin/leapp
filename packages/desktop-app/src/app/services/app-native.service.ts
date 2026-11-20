@@ -1,5 +1,6 @@
 import { Injectable } from "@angular/core";
 import * as Keytar from "keytar";
+import type * as ChildProcess from "child_process";
 import { INativeService } from "@noovolari/leapp-core/interfaces/i-native-service";
 import { IMsalEncryptionService } from "@noovolari/leapp-core/interfaces/i-msal-encryption-service";
 import { MsalEncryptionService } from "./msal-encryption.service";
@@ -15,6 +16,7 @@ export class AppNativeService implements INativeService {
   app: any;
   dialog: any;
   exec: any;
+  execFile: typeof ChildProcess.execFile;
   session: any;
   unzip: any;
   copydir: any;
@@ -54,6 +56,7 @@ export class AppNativeService implements INativeService {
       this.ini = window.require("js-ini");
       this.path = window.require("path");
       this.exec = window.require("child_process").exec;
+      this.execFile = window.require("child_process").execFile;
       this.url = window.require("url");
       this.unzip = window.require("extract-zip");
       this.copydir = window.require("copy-dir");
