@@ -301,7 +301,11 @@ export class AwsSsoIntegrationService implements IIntegrationService {
   private async login(integrationId: string | number, region: string, portalUrl: string): Promise<LoginResponse> {
     const redirectClient = this.nativeService.followRedirects[this.getProtocol(portalUrl)];
     portalUrl = await new Promise((resolve, _) => {
-      const request = redirectClient.request(portalUrl, (response) => resolve(response.responseUrl));
+      // Only the final URL is needed. Destroy the response: an unread body keeps the socket open, which stops the CLI from exiting.
+      const request = redirectClient.request(portalUrl, (response) => {
+        resolve(response.responseUrl);
+        response.destroy();
+      });
       request.end();
     });
 
